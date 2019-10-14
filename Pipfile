@@ -10,6 +10,7 @@ beautifulsoup4 = "*"
 requests = "*"
 discord-py = "*"
 asyncio = "*"
+python-dotenv = "*"
 
 [requires]
 python_version = "3.7"
