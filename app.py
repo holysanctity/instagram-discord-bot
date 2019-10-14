@@ -1,10 +1,23 @@
-from bs4 import BeautifulSoup
+import os
+import discord
+import asyncio
 import requests
 import json
+import random
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
+load_dotenv()
+
+token = os.getenv('DISCORD_TOKEN')
+channel_name = os.getenv('CHANNEL_NAME')
+instagram_page = os.getenv('INSTAGRAM_PAGE_URL')
+
+################################
+###### Instagram Scraping ######
+################################
 class InstragramScraper:
   def request_url(self, url):
-    #test the http error
     try:
       response = requests.get(url)
       response.raise_for_status()
@@ -26,17 +39,46 @@ class InstragramScraper:
     # decode string data into json object
     return json.loads(raw_string)
 
-  def get_timestamp_of_last_post(self, profile_url):
-    response = self.request_url(profile_url)
+  def get_timestamp_of_last_post(self, page_url):
+    response = self.request_url(page_url)
     data = self.extract_data(response)
     json_data = self.parse_data_into_json(data)
-
     return json_data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"][0]["node"]["taken_at_timestamp"]
 
+#########################
+###### Discord Bot ######
+#########################
+client = discord.Client()
 
-if __name__ == '__main__':
+async def background_task():
+  await client.wait_until_ready()
+  channel = discord.utils.get(client.get_all_channels(), name=channel_name)
+
+  # initialize scraper
+  timestamp_prev = 0
   scraper = InstragramScraper()
 
-  taken_at_timestamp = scraper.get_timestamp_of_last_post('https://www.instagram.com/cats_of_instagram/?hl=en')
+  while not client.is_closed():
+    timestamp_now = scraper.get_timestamp_of_last_post(instagram_page)
 
-  print(taken_at_timestamp)
+    if timestamp_prev == 0:
+      timestamp_prev = timestamp_now
+    elif timestamp_now > timestamp_prev:
+      timestamp_prev = timestamp_now
+      await channel.send('new post')
+
+    print(timestamp_prev)
+    await channel.send('no new post')
+    # task runs at random interval between 30 to 60 seconds
+    await asyncio.sleep(random.randint(30,61))
+
+@client.event
+async def on_ready():
+  print('Logged in as')
+  print(client.user.name)
+  print(client.user.id)
+  print('------')
+
+if __name__ == '__main__':
+  client.loop.create_task(background_task())
+  client.run(token)
