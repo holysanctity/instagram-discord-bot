@@ -4,6 +4,7 @@ import asyncio
 import requests
 import json
 import random
+from datetime import datetime
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
@@ -17,7 +18,10 @@ instagram_page = os.getenv('INSTAGRAM_PAGE_URL')
 ###### Instagram Scraping ######
 ################################
 class InstragramScraper:
-  def request_url(self, url):
+  def __init__(self):
+    self.profile_page_json = {}
+
+  def generate_html(self, url):
     try:
       response = requests.get(url)
       response.raise_for_status()
@@ -39,16 +43,45 @@ class InstragramScraper:
     # decode string data into json object
     return json.loads(raw_string)
 
-  def get_timestamp_of_last_post(self, page_url):
-    response = self.request_url(page_url)
+  def set_profile_page_json(self, page_url):
+    response = self.generate_html(page_url)
     data = self.extract_data(response)
     json_data = self.parse_data_into_json(data)
-    return json_data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"][0]["node"]["taken_at_timestamp"]
+    self.profile_page_json = json_data
+
+  def get_timestamp_of_last_post(self):
+    return self.profile_page_json["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"][0]["node"]["taken_at_timestamp"]
+
+  def get_account_name(self):
+    return self.profile_page_json["entry_data"]["ProfilePage"][0]["graphql"]["user"]["full_name"]
+
+  def get_post_text(self):
+    return self.profile_page_json["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"][0]["node"]["edge_media_to_caption"]["edges"][0]["node"]["text"]
+
+  def get_post_url_shortcode(self):
+    return self.profile_page_json["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"][0]["node"]["shortcode"]
 
 #########################
 ###### Discord Bot ######
 #########################
 client = discord.Client()
+
+@client.event
+async def on_ready():
+  print('Logged in as')
+  print(client.user.name)
+  print(client.user.id)
+  print('------')
+
+def generate_message(scraper_obj):
+  name = scraper_obj.get_account_name()
+  time = datetime.fromtimestamp(scraper_obj.get_timestamp_of_last_post())
+  text = scraper_obj.get_post_text()
+  shortcode = scraper_obj.get_post_url_shortcode()
+  nl = '\n'
+
+  message = f"{name} posted at {time}:{nl}{text}{nl}https://www.instagram.com/p/{shortcode}"
+  return message
 
 async def background_task():
   await client.wait_until_ready()
@@ -58,26 +91,26 @@ async def background_task():
   timestamp_prev = 0
   scraper = InstragramScraper()
 
+  # define what bot should do while online
   while not client.is_closed():
-    timestamp_now = scraper.get_timestamp_of_last_post(instagram_page)
+    scraper.set_profile_page_json(instagram_page)
+    timestamp_now = scraper.get_timestamp_of_last_post()
 
     if timestamp_prev == 0:
       timestamp_prev = timestamp_now
     elif timestamp_now > timestamp_prev:
+      print('New post at', datetime.now())
       timestamp_prev = timestamp_now
-      await channel.send('new post')
+      await channel.send(generate_message(scraper))
+    else:
+      print('No new post at', datetime.now())
 
-    print(timestamp_prev)
-    await channel.send('no new post')
-    # task runs at random interval between 30 to 60 seconds
+    # task runs at random interval between 30 to 60 seconds to help avoid detection
     await asyncio.sleep(random.randint(30,61))
 
-@client.event
-async def on_ready():
-  print('Logged in as')
-  print(client.user.name)
-  print(client.user.id)
-  print('------')
+
+#####################################
+#####################################
 
 if __name__ == '__main__':
   client.loop.create_task(background_task())
