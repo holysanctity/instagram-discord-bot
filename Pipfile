@@ -6,6 +6,10 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
+beautifulsoup4 = "*"
+requests = "*"
+discord-py = "*"
+asyncio = "*"
 
 [requires]
 python_version = "3.7"
