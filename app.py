@@ -17,13 +17,17 @@ instagram_page = os.getenv('INSTAGRAM_PAGE_URL')
 ################################
 ###### Instagram Scraping ######
 ################################
+_user_agents = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36'
+]
+
 class InstragramScraper:
   def __init__(self):
     self.profile_page_json = {}
 
   def generate_html(self, url):
     try:
-      response = requests.get(url)
+      response = requests.get(url, headers={'User-Agent': random.choice(_user_agents)})
       response.raise_for_status()
     except requests.HTTPError:
       raise requests.HTTPError
@@ -105,8 +109,8 @@ async def background_task():
     else:
       print('No new post at', datetime.now())
 
-    # task runs at random interval between 30 to 60 seconds to help avoid detection
-    await asyncio.sleep(random.randint(30,61))
+    # task runs at random interval between 2 to 4 minutes to help avoid detection
+    await asyncio.sleep(random.randint(120, 240))
 
 
 #####################################
