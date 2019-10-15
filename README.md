@@ -4,7 +4,7 @@ An Instagram-Discord bot that provides notifications to Discord channels when a 
 ## Final Product
 
 Example of Discord Bot Post
-!["Discord Bot Post](./docs/discord_post.PNG)
+!["Discord Bot Post](https://github.com/kvsuen/instagram-discord-bot/raw/master/docs/discord_post.PNG)
 
 ## Getting Started
 
